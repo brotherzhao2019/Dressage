@@ -13,13 +13,13 @@ BLUE, TEAL, INK, MUTED = "#3569C8", "#188579", "#1C2D47", "#62738A"
 
 
 class Diagram:
-    def __init__(self, height, title, subtitle):
+    def __init__(self, height, title, subtitle, font="DejaVu Sans, sans-serif"):
         self.height = height
         self.parts = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="{height}" viewBox="0 0 1320 {height}">',
             '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>',
             '<rect width="100%" height="100%" fill="#FAFCFF"/>',
-            '<g font-family="DejaVu Sans, sans-serif">',
+            f'<g font-family="{escape(font, quote=True)}">',
         ]
         self.text(44, 54, title, 29, INK)
         self.text(44, 90, subtitle, 17)
@@ -145,3 +145,123 @@ for i, (title, detail) in enumerate(stages):
 d.text(60, 1270, "No capacity: wait in the RL queue. Result ACK, batch delivery and optimizer completion are distinct.", 15)
 d.text(60, 1298, "Logical service calls shown; CPU Head forwards Worker traffic across clusters. Most response arrows are omitted.", 13)
 d.save("lifecycle", scale=1.5)
+
+
+def render_reliability(language):
+    if language == "zh-CN":
+        title = "两种请求，两套去重机制"
+        subtitle = "传输重试保持业务身份；不重复启动任务，不把响应重放变成另一次生成"
+        headings = ["GPU → CPU：任务控制", "CPU → GPU：模型调用"]
+        cards = [
+            ("1  RL固定执行与预留请求身份", [
+                "execution ID + 预留请求身份 + 请求内容",
+                "回复丢失：用原身份重试或回查",
+                "不为传输重试另建execution",
+            ]),
+            ("2  Control数据库原子处理", [
+                "同身份同内容：复用预留 / 当前状态",
+                "同身份内容冲突：拒绝",
+                "容量不足：429，继续在RL侧等待",
+            ]),
+            ("3  持久结果outbox与ACK", [
+                "Worker先落结果，再交付Control",
+                "同execution / digest重发可去重",
+                "RL接收后ACK，不重跑Agent",
+            ]),
+            ("1  Worker本地Relay固定调用身份", [
+                "request ID + 原请求字节 + digest",
+                "经CPU Head转发；传输重试不换身份",
+                "另一独立调用使用新的request ID",
+            ]),
+            ("2  GPU Policy请求账本", [
+                "键：route ID + request ID",
+                "同身份同内容：共享在途生成 / 完整响应",
+                "同身份内容冲突：拒绝",
+            ]),
+            ("3  完整响应返回Agent", [
+                "回复丢失：同一请求取回原响应字节",
+                "重放不重复生成，也不拼接不同响应",
+                "独立响应独立message ID，重放不变",
+            ]),
+        ]
+        boundary = "两条通道汇合到训练交付边界"
+        checks = [
+            "CPU清理证明 + GPU旧generation关闭 + 轨迹身份 / token / mask / 权重版本检查",
+            "RL选组 → 原生TQ交付训练rank；全部rank消费后才释放入选源key",
+        ]
+        footnotes = [
+            "传输恢复有预算；耗尽或清理无法证实则明确失败，不使用不确定轨迹训练。",
+            "模型账本有界且在进程内；相同内容不等于同一次调用，ACK不等于optimizer完成。",
+        ]
+        font, body_size = "Noto Sans CJK SC, sans-serif", 18
+    else:
+        title = "Two request paths, two deduplication mechanisms"
+        subtitle = "Retries preserve identity: no duplicate task launch or extra generation from response replay"
+        headings = ["GPU → CPU: execution control", "CPU → GPU: model calls"]
+        cards = [
+            ("1  RL freezes execution identity", [
+                "execution ID + reservation request ID + content",
+                "Lost reply: retry or query with the same identity",
+                "A transport retry does not create a new execution",
+            ]),
+            ("2  Control handles requests atomically", [
+                "Same identity and content: reuse reservation / state",
+                "Same identity, different content: reject",
+                "No capacity: return 429; wait in the RL queue",
+            ]),
+            ("3  Durable result outbox and ACK", [
+                "Worker persists the result, then delivers to Control",
+                "Deduplicate by execution identity and result digest",
+                "RL acknowledges receipt; the Agent is not rerun",
+            ]),
+            ("1  Worker Relay freezes each call", [
+                "request ID + original request bytes + digest",
+                "CPU Head forwards; transport retries retain identity",
+                "An independent call gets a new request ID",
+            ]),
+            ("2  GPU Policy request ledger", [
+                "Key: route ID + request ID",
+                "Matching retry: share generation / complete response",
+                "Same identity, different content: reject",
+            ]),
+            ("3  Return one complete response", [
+                "Lost reply: replay the original response bytes",
+                "No extra generation or mixed response fragments",
+                "Distinct response: new message ID; replay: same ID",
+            ]),
+        ]
+        boundary = "Both paths meet at the training-delivery boundary"
+        checks = [
+            "Verify CPU cleanup, idle GPU generations, trajectory identity, tokens, loss masks and weight version.",
+            "Select groups → native TQ references → release selected source keys only after all training ranks finish.",
+        ]
+        footnotes = [
+            "Recovery is bounded. Exhaustion or unverified cleanup fails; uncertain trajectories cannot train.",
+            "Bounded in-memory model ledger; equal content is not equal identity. ACK is not an optimizer update.",
+        ]
+        font, body_size = "DejaVu Sans, sans-serif", 16
+
+    d = Diagram(1140, title, subtitle, font)
+    for column, (heading, color, fill) in enumerate(zip(
+        headings, [BLUE, TEAL], ["#EFF4FF", "#EDF8F4"],
+    )):
+        x = 40 + column * 645
+        d.box(x, 135, 595, 750, heading, [], color, fill)
+        for row in range(3):
+            y = 215 + row * 225
+            card_title, lines = cards[column * 3 + row]
+            d.box(x + 25, y, 545, 165, card_title, [], color)
+            for i, line in enumerate(lines):
+                d.text(x + 49, y + 79 + i * 31, line, body_size)
+            if row < 2:
+                d.arrow(x + 297, y + 177, x + 297, y + 211, color)
+    d.box(40, 915, 1240, 135, boundary, [], BLUE, "#EFF4FF")
+    for i, line in enumerate(checks):
+        d.text(64, 994 + i * 31, line, body_size)
+    for i, line in enumerate(footnotes):
+        d.text(48, 1085 + i * 32, line, body_size - 1)
+    d.save("reliability" + (".zh-CN" if language == "zh-CN" else ""), scale=1.5)
+
+
+render_reliability("zh-CN")
+render_reliability("en")

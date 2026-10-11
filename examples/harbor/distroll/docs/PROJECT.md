@@ -69,6 +69,18 @@ queued on the RL side without creating idle model routes. See
 
 ### Preserve business identity across transport failures
 
+Execution control and model calls use the same cross-cluster link, but have
+separate ledgers for deduplication. The diagram places their logical flows side
+by side. Transport retries retain the original identity; rerunning a failed
+attempt creates another execution and is not response replay.
+
+![Reliable delivery for execution control and model calls](assets/reliability.png)
+
+Arrows show business stages, not network infrastructure. Worker-to-Control outbox
+delivery stays inside the CPU cluster. Both paths lead to the training-delivery
+checks: result receipt, resource cleanup and training consumption are distinct
+boundaries and cannot substitute for one another.
+
 A submission timeout may mean either that a request never arrived or that the
 server executed it and the reply was lost. Control uses stable execution identity,
 content digests and database transactions to distinguish retries from conflicts.

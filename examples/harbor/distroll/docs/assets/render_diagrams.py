@@ -1,5 +1,6 @@
 """Render the example's architecture figures; requires PyGObject and librsvg."""
 
+import xml.etree.ElementTree as ET
 from html import escape
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from gi.repository import Rsvg
 
 ROOT = Path(__file__).resolve().parent
 BLUE, TEAL, INK, MUTED = "#3569C8", "#188579", "#1C2D47", "#62738A"
+ET.register_namespace("", "http://www.w3.org/2000/svg")
 
 
 class Diagram:
@@ -37,15 +39,25 @@ class Diagram:
     def arrow(self, x1, y1, x2, y2, color=BLUE):
         self.parts.append(f'<path d="M{x1},{y1} L{x2},{y2}" stroke="{color}" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>')
 
-    def save(self, name, scale=1):
+    def save(self, name, scale=1, translations=None):
         svg = "\n".join(self.parts + ["</g></svg>"])
-        (ROOT/f"{name}.svg").write_text(svg)
-        raster = svg.replace(
-            f'width="1320" height="{self.height}"',
-            f'width="{int(1320 * scale)}" height="{int(self.height * scale)}"',
-            1,
-        )
-        Rsvg.Handle.new_from_data(raster.encode()).get_pixbuf().savev(str(ROOT/f"{name}.png"), "png", [], [])
+        variants = [(name, svg)]
+        if translations is not None:
+            chinese = ET.fromstring(svg)
+            chinese.find("{http://www.w3.org/2000/svg}g").set(
+                "font-family", "Noto Sans CJK SC, sans-serif",
+            )
+            for node in chinese.iter("{http://www.w3.org/2000/svg}text"):
+                node.text = translations[node.text]
+            variants.append((name + ".zh-CN", ET.tostring(chinese, encoding="unicode")))
+        for filename, document in variants:
+            (ROOT/f"{filename}.svg").write_text(document)
+            raster = document.replace(
+                f'width="1320" height="{self.height}"',
+                f'width="{int(1320 * scale)}" height="{int(self.height * scale)}"',
+                1,
+            )
+            Rsvg.Handle.new_from_data(raster.encode()).get_pixbuf().savev(str(ROOT/f"{filename}.png"), "png", [], [])
 
 
 d = Diagram(765, "Dressage DistRoll", "A self-managed CPU execution pool, separate from GPU inference and training")
@@ -72,7 +84,42 @@ for x, title, lines, color in [
     d.box(x, 477, 212, 127, title, lines, color)
 d.text(44, 686, "Only the Heads cross the cluster boundary. Workers and ranks use internal networks.")
 d.text(44, 724, "The link is reachable but may stall or disconnect; application protocols handle bounded recovery.")
-d.save("architecture")
+d.save("architecture", translations={
+    "Dressage DistRoll": "Dressage DistRoll",
+    "A self-managed CPU execution pool, separate from GPU inference and training": "自主管理CPU执行池，与GPU推理及训练独立部署",
+    "GPU cluster": "GPU集群",
+    "Containerized training; no task Docker daemon": "容器化训练；不负责启动任务沙箱",
+    "CPU rollout cluster": "CPU rollout集群",
+    "Harbor tasks on user-managed worker hosts": "在自主管理的Worker上执行Harbor任务",
+    "GPU Head": "GPU Head",
+    "RL queue, group selection, early stop": "RL排队、选组与early-stop",
+    "Policy routes and request deduplication": "Policy路由及请求去重",
+    "Dressage Proxy: TITO and native TQ": "Dressage Proxy：TITO与原生TQ",
+    "CPU Head": "CPU Head",
+    "Control: admission and execution state": "Control：容量准入及执行状态",
+    "Worker-facing Policy gateway": "面向Worker的统一模型网关",
+    "PostgreSQL and image Registry": "PostgreSQL与镜像Registry",
+    "Execution control": "任务控制",
+    "reserve / query / cancel / ACK": "reserve / query / cancel / ACK",
+    "Route lifecycle": "模型通道管理",
+    "bind / open / seal / revoke": "bind / open / seal / revoke",
+    "Model requests": "模型请求",
+    "Complete responses return to CPU": "完整响应返回CPU侧",
+    "Actor nodes": "训练节点",
+    "Loss and optimizer": "计算loss与参数更新",
+    "Checkpoints": "保存checkpoint",
+    "Inference": "推理节点",
+    "Model generation": "模型生成",
+    "Weight updates": "接收新权重",
+    "Worker 1": "Worker 1",
+    "Harbor / Agent": "Harbor / Agent",
+    "Verifier / sandbox": "验证器与沙箱",
+    "Worker N": "Worker N",
+    "Image cache": "镜像缓存",
+    "Sandbox protection": "沙箱资源保护",
+    "Only the Heads cross the cluster boundary. Workers and ranks use internal networks.": "仅两个Head跨集群通信；Worker与训练rank分别使用各自内网。",
+    "The link is reachable but may stall or disconnect; application protocols handle bounded recovery.": "链路可达但可能抖动或中断；业务协议提供有界恢复。",
+})
 
 d = Diagram(
     1320,
@@ -144,7 +191,55 @@ for i, (title, detail) in enumerate(stages):
         d.arrow(x+267, 1183, x+305, 1183)
 d.text(60, 1270, "No capacity: wait in the RL queue. Result ACK, batch delivery and optimizer completion are distinct.", 15)
 d.text(60, 1298, "Logical service calls shown; CPU Head forwards Worker traffic across clusters. Most response arrows are omitted.", 13)
-d.save("lifecycle", scale=1.5)
+d.save("lifecycle", scale=1.5, translations={
+    "From one rollout slot to a training update": "从一个rollout slot到一次参数更新",
+    "Reserve CPU capacity first. Bind model access only after a Worker creates a real trial.": "先预留CPU容量；Worker建立真实trial后，才绑定模型通道。",
+    "ADMIT": "准入",
+    "EXECUTE": "执行",
+    "DELIVER": "交付",
+    "RL queue": "RL队列",
+    "CPU Control": "CPU Control",
+    "CPU Worker": "CPU Worker",
+    "GPU Policy / Proxy": "GPU Policy / Proxy",
+    "Candidates & groups": "候选与group编排",
+    "Capacity & results": "容量与结果",
+    "Harbor execution": "Harbor任务执行",
+    "Routes & trajectories": "路由与轨迹",
+    "01  Reserve capacity": "01  预留容量",
+    "Atomic admission": "原子检查并预留资源",
+    "02  Prepare model context": "02  准备模型上下文",
+    "Only after reservation succeeds": "仅在预留成功后进行",
+    "03  Activate execution": "03  激活execution",
+    "Hand off the admitted task": "提交已获得容量的任务",
+    "04  Claim execution": "04  领取execution",
+    "Check ownership and configuration": "核验执行归属及配置",
+    "05  Bind / open route": "05  绑定并开放模型通道",
+    "After creating the Harbor trial": "在创建真实Harbor trial后进行",
+    "06  Model requests": "06  调用模型",
+    "Tools run in the CPU sandbox": "工具在CPU沙箱内执行",
+    "07  Report verified result": "07  上报验证结果",
+    "Persist in outbox before delivery": "先写入outbox，再交付Control",
+    "08  Return queried result": "08  返回执行结果",
+    "Response to RL polling": "响应RL侧的结果查询",
+    "09  Finalize and read trajectory references": "09  定稿并读取轨迹引用",
+    "Validate identity, tokens, loss masks and weight version": "检查身份、token、loss mask及权重版本",
+    "10  ACK result": "10  确认接收结果",
+    "Acknowledge receipt, not training": "确认接收，不代表参数更新完成",
+    "11  Detach model route": "11  关闭通道并保留轨迹引用",
+    "Generation ends; selected source TQ remains available": "结束生成；保留训练需要的源TQ引用",
+    "Cleanup barrier & group selection": "清理屏障与group选择",
+    "Verify CPU cleanup and idle GPU generations. Early stop must settle surplus executions too.": "确认CPU已清退、GPU旧生成已结束；early-stop也必须结清剩余execution。",
+    "Read native TQ": "读取原生TQ",
+    "All selected training ranks": "所有参与训练的rank取数",
+    "Update model": "更新模型",
+    "Loss / backward / optimizer": "计算loss、反向及参数更新",
+    "Release source keys": "释放源key",
+    "After every rank finishes": "等待全部训练rank完成",
+    "Publish weights": "发布权重",
+    "Checkpoint when due": "按周期保存checkpoint",
+    "No capacity: wait in the RL queue. Result ACK, batch delivery and optimizer completion are distinct.": "容量不足时在RL侧等待；结果ACK、batch交付和optimizer完成是不同节点。",
+    "Logical service calls shown; CPU Head forwards Worker traffic across clusters. Most response arrows are omitted.": "图示为逻辑调用，跨集群流量经CPU Head转发；多数响应箭头省略。",
+})
 
 
 def render_reliability(language):

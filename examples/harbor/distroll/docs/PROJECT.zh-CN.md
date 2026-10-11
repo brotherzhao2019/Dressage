@@ -32,7 +32,7 @@ GPU侧负责候选排队、GRPO组选择、模型推理和参数更新。CPU侧�
 
 只有GPU Head与CPU Head需要跨集群通信。CPU Worker和GPU训练、推理节点分别使用自己的内网。两个Head之间只要求链路可达；链路可能抖动或中断，连接的具体搭建方式不属于本示例。
 
-![部署与通信边界](assets/architecture.png)
+![部署与通信边界](assets/architecture.zh-CN.png)
 
 | 方向 | 请求 | 作用 |
 | --- | --- | --- |
@@ -99,7 +99,7 @@ Guard是Worker本地的单sandbox保护器，读取cgroup资源统计。enforce�
 
 显式开启early-stop后，凑够目标合格组即停止派发并取消其余候选。CPU清退和GPU旧生成活动都必须结束，才允许参数更新。这个策略按完成顺序选组，可能引入速度偏差。组编排与选择见[rollout.py](../gpu_adapter/src/dressage_distroll_gpu_adapter/rollout.py)。
 
-![从派发到参数更新](assets/lifecycle.png)
+![从派发到参数更新](assets/lifecycle.zh-CN.png)
 
 TITO按真实输入与生成token组织轨迹。历史压缩或改写可能产生多个segment，但这些segment仍属于同一条trajectory。复用的历史只作为零梯度上下文，reward与advantage按原始trajectory关系传播。
 
@@ -122,13 +122,13 @@ TITO按真实输入与生成token组织轨迹。历史压缩或改写可能产�
 | 优化 | LR1e-6，constant；TIS；clip0.2/0.28；KL及entropy系数0；不做二次advantage归一化 |
 | 保存 | 每10步及正常末步保存；每run最多5份checkpoint；未设置独立evaluation |
 
-![候选与入选轨迹reward](assets/reward.png)
+![候选与入选轨迹reward](assets/reward.zh-CN.png)
 
 蓝线是有效候选trajectory的平均reward，绿线是入选训练的有效trajectory，两者排除失败slot和零梯度占位。浅线为逐步原值，深线为去偏EMA，平滑权重0.85；纵轴从0.4开始。
 
 对逐step值取平均，最初10步到最后10步，有效候选reward从70.7%变为82.7%，入选trajectory从66.9%变为70.0%。入选曲线来自TensorBoard的`rollout/raw_reward_trajectory_mean`；候选曲线由对应控制记录中的有效轨迹奖励计算，并核对了入选奖励的一致性。
 
-![每步入选group数量](assets/selected-groups.png)
+![每步入选group数量](assets/selected-groups.zh-CN.png)
 
 平均每步入选14.58组，范围4–16组；最初10步平均15.90组，最后10步13.50组。一个trajectory的多个segment只计作一次采样。
 

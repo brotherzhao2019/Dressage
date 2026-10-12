@@ -1,7 +1,7 @@
 # Dressage DistRoll：独立CPU执行池上的Agentic RL
 
 <p align="center">
-  <strong>江静涛<sup>1,2</sup> · 谭智勇<sup>1,3</sup> · 单昭<sup>1,*</sup> · 张禹尧<sup>1</sup> · 肖羽佳<sup>1</sup></strong>
+  <strong>江静涛<sup>1,2</sup> · 谭智勇<sup>1,3</sup> · 单昭<sup>1,*</sup> · 白岩凇<sup>1</sup> · 张禹尧<sup>1</sup> · 肖羽佳<sup>1</sup></strong>
 </p>
 
 <p align="center">

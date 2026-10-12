@@ -1,7 +1,7 @@
 # Dressage DistRoll: Agentic RL with an independent CPU execution pool
 
 <p align="center">
-  <strong>Jingtao Jiang<sup>1,2</sup> · Zhiyong Tan<sup>1,3</sup> · Zhao Shan<sup>1,*</sup> · Yuyao Zhang<sup>1</sup> · Yujia Xiao<sup>1</sup></strong>
+  <strong>Jingtao Jiang<sup>1,2</sup> · Zhiyong Tan<sup>1,3</sup> · Zhao Shan<sup>1,*</sup> · Yansong Bai<sup>1</sup> · Yuyao Zhang<sup>1</sup> · Yujia Xiao<sup>1</sup></strong>
 </p>
 
 <p align="center">
